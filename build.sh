@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (C) 2019 baalajimaestro
+# Copyright (C) 2019 hsj51
 #
 # Licensed under the Raphielscape Public License, Version 1.b (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,20 +13,29 @@
 ##### Build Env Dependencies
 build_env()
 {
+cd
+ls -a
+git clone https://github.com/akhilnarang/scripts > /dev/null 2>&1
+cd scripts
+bash setup/android_build_env.sh  > /dev/null 2>&1
+echo "Build Dependencies Installed....."
+sudo unlink /usr/bin/python
+curl -sLo upload-github-release-asset.sh https://gist.githubusercontent.com/stefanbuck/ce788fee19ab6eb0b4447a85fc99f447/raw/dbadd7d310ce8446de89c4ffdf1db0b400d0f6c3/upload-github-release-asset.sh
+sudo apt-get install p7zip-full p7zip-rar wget curl brotli -y > /dev/null 2>&1
+sudo ln -s /usr/bin/python2.7 /usr/bin/python
+cd $path
+rm -rf scripts
 
-TELEGRAM_TOKEN=$(cat /tmp/tg_token)
-TELEGRAM_CHAT=$(cat /tmp/tg_chat)
-export GH_PERSONAL_TOKEN=$(cat /tmp/gh_token)
-export TELEGRAM_TOKEN
-export TELEGRAM_CHAT
-cd ~
-git clone https://baalajimaestro:${GH_PERSONAL_TOKEN}@github.com/baalajimaestro/google-git-cookies.git > /dev/null 2>&1
+git clone https://hsj51:${GH_PERSONAL_TOKEN}@github.com/hsj51/google-git-cookies.git > /dev/null 2>&1
 cd google-git-cookies
 bash run.sh
-cd ..
+cd $path
 rm -rf google-git-cookies
-git config --global user.email "baalajimaestro@raphielgang.org"
-git config --global user.name "baalajimaestro"
+
+git config --global user.email "hrutvikjagtap51@gmail.com"
+git config --global user.name "hsj51"
+git config --global color.ui "auto"
+
 echo "Google Git Cookie Set!"
 }
 
@@ -190,7 +199,6 @@ prepare_source() {
     printf "%s\n\n" $($reset)
     source_android_scr=$prepare_source_scr
     repo init -u $repo_init_url -b $repo_branch --depth 1
-    python3 /drone/src/xml_strip.py
     sync_android_scr=1
     ##### if this fails idc, its your problem biatch
 }
@@ -309,42 +317,27 @@ upload() {
     case $build_type_scr in
         bacon)
             file=$(ls $OUT_SCR/*201*.zip | tail -n 1)
-            ;;
-        bootimage)
-            file=$OUT_SCR/boot.img
-            ;;
-        recoveryimage)
-            file=$OUT_SCR/recovery.img
-            ;;
-        dtbo)
-            file=$OUT_SCR/dtbo.img
-            ;;
-        systemimage)
-            file=$OUT_SCR/system.img
-            ;;
-        vendorimage)
-            file=$OUT_SCR/vendor.img
     esac
 
     if [ -f $HOME/buildscript/*.img ]; then
         rm -f $HOME/buildscript/*.img
     fi
-    git clone https://github.com/baalajimaestro/Generic-ROM-Builder -b binary binary
+    git clone https://github.com/jazz511/Generic-ROM-Builder -b binary binary
     cd binary
-    touch "$(date +%d%m%y)-${prepare_source_scr}-$(cat /tmp/build_no)"
+    touch "$(date +%d%m%y)-${prepare_source_scr}-$DRONE_BUILD_NUMBER"
     git add .
     git commit -m "[MaestroCI]: Releasing Build ${prepare_source_scr}-$(date +%d%m%y)"
-    git tag "$(date +%d%m%y)-${prepare_source_scr}-$(cat /tmp/build_no)"
+    git tag "$(date +%d%m%y)-${prepare_source_scr}-$DRONE_BUILD_NUMBER"
     git remote rm origin
-    git remote add origin https://baalajimaestro:${GH_PERSONAL_TOKEN}@github.com/baalajimaestro/Generic-ROM-Builder.git
+    git remote add origin https://hsj51:${GH_PERSONAL_TOKEN}@github.com/hsj51/Generic-ROM-Builder.git
     git push origin binary --follow-tags
     build_date_scr=$(date +%F_%H-%M)
     if [ ! -z $build_orig_scr ] && [ $upload_scr ]; then
-      bash upload-github-release-asset.sh github_api_token=$GH_PERSONAL_TOKEN owner=baalajimaestro repo=$(cat /tmp/gh_repo) tag="$(date +%d%m%y)-${prepare_source_scr}-$(cat /tmp/build_no)" filename=$file
+      bash upload-github-release-asset.sh github_api_token=$GH_PERSONAL_TOKEN owner=hsj51 repo=$GH_REPO_NAME tag="$(date +%d%m%y)-${prepare_source_scr}-$DRONE_BUILD_NUMBER" filename=$file
         file=`ls $HOME/buildscript/*.img | tail -n 1`
         id=$(gdrive upload --parent $G_FOLDER $file | grep "Uploaded" | cut -d " " -f 2)
     elif [ -z $build_orig_scr ] && [ $upload_scr ]; then
-        bash upload-github-release-asset.sh github_api_token=$GH_PERSONAL_TOKEN owner=baalajimaestro repo=$(cat /tmp/gh_repo) tag="$(date +%d%m%y)-${prepare_source_scr}-$(cat /tmp/build_no)" filename=$file
+        bash upload-github-release-asset.sh github_api_token=$GH_PERSONAL_TOKEN owner=hsj51 repo=$GH_REPO_NAME tag="$(date +%d%m%y)-${prepare_source_scr}-$DRONE_BUILD_NUM" filename=$file
     fi
 
     if [ $telegram_scr ] && [ $upload_scr ]; then
@@ -398,7 +391,7 @@ if [ $prepare_source_scr ]; then
     prepare_source
 fi
     function_check
-    start_env
+#    start_env
     sync_source
     setup_paths
     clean_target

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (C) 2019 baalajimaestro
+# Copyright (C) 2019 hsj51
 #
 # Licensed under the Raphielscape Public License, Version 1.b (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,4 +20,4 @@ sudo echo "ci ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 useradd -m -d /home/ci ci
 useradd -g ci wheel
 echo `pwd` > /tmp/loc
-sudo -Hu ci bash -c "bash build.sh -i rr -U https://github.com/ResurrectionRemix/platform_manifest.git -B pie -b xiaomi -d whyred -r"
+sudo -Hu ci bash -c "bash build.sh -i aex -U https://github.com/AospExtended/manifest.git -B 9.x -b lenovo -d A6020 -r -tg"

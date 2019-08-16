@@ -1,0 +1,9 @@
+kind: pipeline
+name: MaestroCI Build Bot
+
+steps:
+- name: test
+  image: baalajimaestro/android_build:latest
+  environment:
+  commands:
+  - bash ./runner.sh
