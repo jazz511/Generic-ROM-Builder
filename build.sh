@@ -25,17 +25,17 @@ sudo ln -s /usr/bin/python2.7 /usr/bin/python
 cd $path
 rm -rf scripts
 
-git clone https://hsj51:${GH_PERSONAL_TOKEN}@github.com/hsj51/google-git-cookies.git > /dev/null 2>&1
-cd google-git-cookies
-bash run.sh
-cd $path
-rm -rf google-git-cookies
+git clone -q "https://github.com/hsj51/google-git-cookies.git" &> /dev/null
+if [ -e google-git-cookies ]; then
+    bash google-git-cookies/setup_cookies.sh
+    rm -rf google-git-cookies
+fi
 
 git config --global user.email "hrutvikjagtap51@gmail.com"
 git config --global user.name "hsj51"
 git config --global color.ui "auto"
 
-echo "Google Git Cookie Set!"
+echo "Environment Setting Up Done..."
 }
 
 cyan=' '
@@ -68,9 +68,6 @@ function dogbin()
   fi;
   echo '';
 
-  # Trim line rewrites
-  edittrimoutput "${tmp}";
-
   # Upload to dogbin
   url="http://del.dog/$(timeout -k 10 10 curl -X POST -s --data-binary @"${tmp}" \
       https://del.dog/documents | grep key | cut -d \" -f 4)";
@@ -80,23 +77,6 @@ function dogbin()
   rm "${tmp}";
   echo ${url} > /tmp/dogbin_url
 }
-
-function edittrimoutput()
-{
-  # Usage
-  if [ -z "${1}" ]; then
-    echo '';
-    echo ' Usage: edittrimoutput <"files"> (Edit by triming output line rewrites)';
-    echo '';
-    return;
-  fi;
-
-  # Trim output line rewrites
-  sed -i 's/\r[^\n]*\r/\r/g' "${@}";
-  sed -i 's/\(\r\|'$'\033''\[K\)//g' "${@}";
-  sed -Ei 's/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g' "${@}";
-}
-
 
 print_help() {
     echo "Usage: `basename $0` [OPTION]";
@@ -279,10 +259,12 @@ sync_source() {
       printf "%s\n" "*********************************************"
       printf "%s\n\n" $($reset)
       # Reset bash timer and begin syncing
-      SECONDS=0
+      SYNC_START=$(date +"%s")
       bash telegram -M "Sync Started for $repo_init_url "
       repo sync --force-sync --current-branch --no-tags --no-clone-bundle --optimized-fetch --prune -j$(nproc --all) -q > sync.log 2>&1
       dogbin sync.log
+      SYNC_END=$(date +"%s")
+      SYNC_DIFF=$((SYNC_END - SYNC_START))
       printf "%s\n\n" $($cyan)
       printf "%s\n" "*********************************************"
       printf '%s\n' "Repo Sync Finished"
@@ -399,6 +381,7 @@ upload() {
 }
 
 build() {
+    BUILD_START=$(date +"%s")
 #  if [ -f build.log ]; then
 #      rm -f build.log
 #  fi
@@ -426,8 +409,9 @@ build() {
         Started on: *$HOSTNAME*
         Time: *$(date "+%r")* "
     fi
-    SECONDS=0
     mka bacon | grep $device_scr
+    BUILD_END=$(date +"%s")
+    BUILD_DIFF=$((BUILD_END - BUILD_START))
     printf "%s\n\n" $($cyan)
     printf "%s\n" "***********************************************"
     printf '%s\n' "Finished build with target $($yellow)"$build_type_scr""$($cyan)" for"$($yellow)" $device_scr $($cyan)"
