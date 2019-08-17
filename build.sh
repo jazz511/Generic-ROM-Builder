@@ -14,7 +14,6 @@
 build_env()
 {
 cd
-ls -a
 git clone https://github.com/akhilnarang/scripts > /dev/null 2>&1
 cd scripts
 bash setup/android_build_env.sh  > /dev/null 2>&1
@@ -49,6 +48,55 @@ validate_arg() {
     [ "x$1" == "x" ] && return 0;
     [ "$valid" == "valid" ] && return 0 || return 1;
 }
+
+function dogbin()
+{
+  # Usage: dogbin <file> or | dogbin (Share dogbin logs)
+
+  # Based upon the haste function above
+
+  # Variables
+  local tmp;
+  local url;
+
+  # Get output
+  tmp=$(mktemp);
+  if [ ! -z "${1}" ] && [ -f "${1}" ]; then
+    tee "${tmp}" < "${1}";
+  else
+    cat | tee "${tmp}";
+  fi;
+  echo '';
+
+  # Trim line rewrites
+  edittrimoutput "${tmp}";
+
+  # Upload to dogbin
+  url="http://del.dog/$(timeout -k 10 10 curl -X POST -s --data-binary @"${tmp}" \
+      https://del.dog/documents | grep key | cut -d \" -f 4)";
+  echo " dogbin: ${url}";
+
+  # delete temp file
+  rm "${tmp}";
+  echo ${url} > /tmp/dogbin_url
+}
+
+function edittrimoutput()
+{
+  # Usage
+  if [ -z "${1}" ]; then
+    echo '';
+    echo ' Usage: edittrimoutput <"files"> (Edit by triming output line rewrites)';
+    echo '';
+    return;
+  fi;
+
+  # Trim output line rewrites
+  sed -i 's/\r[^\n]*\r/\r/g' "${@}";
+  sed -i 's/\(\r\|'$'\033''\[K\)//g' "${@}";
+  sed -Ei 's/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g' "${@}";
+}
+
 
 print_help() {
     echo "Usage: `basename $0` [OPTION]";
@@ -230,8 +278,11 @@ sync_source() {
       printf '%s\n' "Repo Sync Started"
       printf "%s\n" "*********************************************"
       printf "%s\n\n" $($reset)
-      repo sync --force-sync --current-branch --no-tags --no-clone-bundle --optimized-fetch --prune -j$(nproc) -q > sync.log 2>&1
-      bash telegram -f sync.log
+      # Reset bash timer and begin syncing
+      SECONDS=0
+      bash telegram -M "Sync Started for $repo_init_url "
+      repo sync --force-sync --current-branch --no-tags --no-clone-bundle --optimized-fetch --prune -j$(nproc --all) -q > sync.log 2>&1
+      dogbin sync.log
       printf "%s\n\n" $($cyan)
       printf "%s\n" "*********************************************"
       printf '%s\n' "Repo Sync Finished"
@@ -326,10 +377,10 @@ upload() {
     cd binary
     touch "$(date +%d%m%y)-${prepare_source_scr}-$DRONE_BUILD_NUMBER"
     git add .
-    git commit -m "[MaestroCI]: Releasing Build ${prepare_source_scr}-$(date +%d%m%y)"
+    git commit -m "[HrutvikCI]: Releasing Build ${prepare_source_scr}-$(date +%d%m%y)"
     git tag "$(date +%d%m%y)-${prepare_source_scr}-$DRONE_BUILD_NUMBER"
     git remote rm origin
-    git remote add origin https://hsj51:${GH_PERSONAL_TOKEN}@github.com/hsj51/Generic-ROM-Builder.git
+    git remote add origin https://hsj51:${GH_PERSONAL_TOKEN}@github.com/hsj51/rom_releases.git
     git push origin binary --follow-tags
     build_date_scr=$(date +%F_%H-%M)
     if [ ! -z $build_orig_scr ] && [ $upload_scr ]; then
@@ -375,6 +426,7 @@ build() {
         Started on: *$HOSTNAME*
         Time: *$(date "+%r")* "
     fi
+    SECONDS=0
     mka bacon | grep $device_scr
     printf "%s\n\n" $($cyan)
     printf "%s\n" "***********************************************"
@@ -393,11 +445,25 @@ fi
     function_check
 #    start_env
     sync_source
+  if [ -e frameworks/base ]; then
+    bash telegram -N -M "Sync completed successfully in $((SYNC_DIFF / 60)) minute(s) and $((SYNC_DIFF % 60)) seconds"
     setup_paths
     clean_target
     build $brand_scr $device_scr
+      if [ -e "$finalzip_path" ]; then
+        bash telegram -N -M "Build completed successfully in $((BUILD_DIFF / 60)) minute(s) and $((BUILD_DIFF % 60)) seconds"
+      else
+        bash telegram -N -M "Build failed in $((BUILD_DIFF / 60)) minute(s) and $((BUILD_DIFF % 60)) seconds"
+        exit 1
+      fi
     remove_build_lock
     upload
+  else
+    echo "Sync failed in $((SYNC_DIFF / 60)) minute(s) and $((SYNC_DIFF % 60)) seconds"
+    bash telegram -N -M "Sync failed in $((SYNC_DIFF / 60)) minute(s) and $((SYNC_DIFF % 60)) seconds
+    See [logs here]($(cat /tmp/dogbin_url))"
+    exit 1
+  fi
 else
     print_help
 fi
